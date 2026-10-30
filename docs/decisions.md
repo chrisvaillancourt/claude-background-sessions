@@ -131,6 +131,21 @@ A plain `sh <absolute path> …` call matches a prefix rule, so it skips both.
   - First review: one blocker (decision 5) and six should-fix items (decisions 6 to 12, and the allow-rule question that led to decision 4). All fixed.
   - Second review: no blockers. Its top finding (empty or relative prompt files) was already fixed by `launch.sh`. Its other findings led to decisions 2, 9, 12 and 13 and some smaller wording fixes.
 
+## 16. Wait for a session's own next turn through the transcript (`--next-turn`)
+
+**Decision:** when a session has ended its turn to wait on its own background job (a build, another model's review) and will resume when that job notifies it, wait with `wait.sh --next-turn`, not with an idle subscription or plain `wait.sh`. The script records the transcript's line count when it first sees the session. It treats the session as finished once three things hold:
+- an assistant entry was written after that line;
+- the latest user or assistant entry is an assistant entry;
+- `claude agents` reports `status` as anything but `busy`.
+
+**Why:** an orchestrator using the skill reported (2026-10-30) a session that had ended its turn with "the build is running in the background; I'll pick up when it finishes" and showed `state: "done"`. Subscribing with `notify_when_idle` returned a notice at once, for the turn that had already ended, and a second subscription did the same. Plain `wait.sh` returns at once for a `done` session, and `--after-message` needs a message, which a self-resuming session never gets. What worked, twice, was a hand-written loop that waited for the transcript to grow; `--next-turn` is that loop with the checks `--after-message` already uses. The check is on `status`, not `state`, because `state` can stay `working` while idle once a session has had a message (decision 9).
+
+**Limit:** a turn that ends before the wait starts counts as the old turn, so the wait times out. Start it as soon as the session goes idle.
+
+**Evidence (2026-10-29, Claude Code 2.1.314):**
+- `tests/wait-script.sh` runs `wait.sh` against a fake `claude agents` and a fake transcript. It failed on the old script (`unknown option --next-turn`) and passes on the new one.
+- A live Haiku session ran `sleep 60` with `run_in_background` and ended its turn. In this run `claude agents` reported `working`/`busy` until the job's notification arrived and the session replied, then `done`/`idle`. So a plain `run_in_background` command didn't reproduce the reported `done`; that report is from the orchestrator, not reproduced here. `--next-turn`, started after the first reply, returned the second reply.
+
 ## Not verified
 
 These rest on observation elsewhere or on documentation, not on a test in this repo:
@@ -142,3 +157,4 @@ These rest on observation elsewhere or on documentation, not on a test in this r
 - Trust being keyed on the git common dir for bare-repo layouts.
 - The "permission-root relocation" prompt when a session calls EnterWorktree outside `.claude/worktrees/`.
 - The idle subscription expiring after 12 hours.
+- A session idle on its own background job showing `done`, and the idle notice firing at once for it (decision 16): reported by an orchestrator, 2026-10-30. A plain `run_in_background` command kept the session `busy` instead on 2.1.314.

@@ -41,6 +41,7 @@ It exists because waiting needs a loop (`for`, `case`, `$( … )`), and a loop t
 - **Reads the final reply from the transcript.** `claude logs` is a redraw of the terminal screen; after stripping escape codes, words and numbers were garbled.
 - **Catches `blocked`.** The built-in idle subscription (SendMessage `notify_when_idle`) doesn't fire when a session stops to ask a question; observed 2026-10-16.
 - **Waits correctly after a follow-up** (`--after-message`). Once a session has had a SendMessage message, `claude agents` reported `state: "working"` with `status: "idle"` for minutes after it had replied (session `efe9bef0`, 2026-10-29). A wait on `state` alone hung. The session also replied within a second, so "wait until it's seen working again" would miss the busy period. The script instead reads the transcript for a reply after the message.
+- **Waits for a session's own next turn** (`--next-turn`). A session idle until its own background job notifies it gets no message, and an idle subscription fires at once for the turn that already ended. The script records the transcript's length and waits for a reply after it (decision 16 in [decisions.md](decisions.md)).
 
 ## When to remove them
 
@@ -56,7 +57,7 @@ Rerun `sh tests/permission-forms.sh <trusted repo dir>` after Claude Code update
   - a plain command or built-in notification reports a session's end, including `blocked`, without a shell loop;
   - there's a plain way to read the final reply that isn't garbled, such as a `claude logs` option for plain text or the final message.
 
-  `--after-message` can go once `state` reliably reports idle after a message, or once the idle notice is reliable enough to use alone.
+  `--after-message` can go once `state` reliably reports idle after a message, or once the idle notice is reliable enough to use alone. `--next-turn` can go once an idle notice requested while a session is already idle waits for its next turn.
 
   Without both, keep it or replace only the half that changed.
 
