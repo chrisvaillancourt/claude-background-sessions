@@ -87,3 +87,7 @@ claude -p --permission-mode default --output-format json \
 ```
 
 Verified with Claude Code 2.1.312.
+
+## License
+
+[MIT](LICENSE)
