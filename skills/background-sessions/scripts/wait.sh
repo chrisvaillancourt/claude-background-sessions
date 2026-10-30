@@ -102,9 +102,10 @@ while :; do
       base=$(base_of "$id")
       if [ -z "$base" ]; then
         # First sight of this session: its transcript so far is the turn to skip.
+        # awk counts a last line still being written, which wc -l would leave out.
         base=0
         for transcript in "$HOME"/.claude/projects/*/"$sid".jsonl; do
-          [ -f "$transcript" ] && base=$(wc -l < "$transcript" | tr -d ' ')
+          [ -f "$transcript" ] && base=$(awk 'END { print NR }' "$transcript")
         done
         bases="$bases $id=$base"
       fi

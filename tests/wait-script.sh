@@ -106,6 +106,15 @@ set_agent working '"idle"'
 rc=$(finish 20)
 check "next-turn accepts working/idle after a reply" '[ "$rc" = 0 ]' "exit $rc"
 
+# A reply still being written when the wait starts belongs to the old turn.
+reset
+jq -cn --arg ts "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" '{type: "assistant", timestamp: $ts, message: {content: [{type: "text", text: "Old reply, half written."}]}}' | tr -d '\n' >> "$transcript"
+start_wait --next-turn --timeout 15 "$id"
+polls_at_least 2
+printf '\n' >> "$transcript"
+rc=$(finish 40)
+check "next-turn skips a line half written when it started" '[ "$rc" = 1 ]' "exit $rc: $(cat "$work/out")"
+
 # A session that blocks on its next turn ends the wait with exit 3.
 reset
 start_wait --next-turn --timeout 120 "$id"
