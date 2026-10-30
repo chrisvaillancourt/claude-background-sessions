@@ -45,63 +45,49 @@ Write it in this session's scratchpad. The session knows only what the prompt sa
 
 A slash command on the prompt's first line runs that skill.
 
-## 3. Launch from a subshell
+## 3. Launch with the script
+
+This skill ships two scripts in its `scripts/` folder. Call them as `sh <skill dir>/scripts/<name>.sh`, with this skill's directory written out as an absolute path: no `~`, `$HOME` or other variables, no `cd`, pipes, subshells or `$( … )` around the call. Permission allow rules match that plain form, so the call isn't held for approval or sent to auto mode's safety check.
 
 ```sh
-(cd <dir> && claude --bg --name "<short descriptive name>" \
-  --model <model-id> --effort <level> --permission-mode <mode> \
-  --add-dir <extra-dir> -- "$(cat <prompt-file>)")
+sh <skill dir>/scripts/launch.sh <dir> <prompt-file> --name "<short descriptive name>" \
+  --model <model-id> --effort <level> --permission-mode <mode> --add-dir <extra-dir>
 ```
 
-- **Keep the parentheses.** They keep the `cd` in a child shell. A bare `cd` in its own Bash call moves this session's working directory.
-- **Keep the `--` before the prompt.** Without it, a prompt that starts with `-` (a bullet or front matter) is parsed as an unknown option, and the session crashes before it starts. `--` also stops `--add-dir`, which takes a list, from swallowing the prompt.
-- **There's no `--cwd` flag.** `claude --bg --cwd …` prints "backgrounded" and then crashes before it starts.
+The script `cd`s inside its own process, so this session's working directory doesn't move. It passes everything after the prompt file to `claude --bg`, puts `--` before the prompt, and then confirms the start: it prints a JSON line `{id, sessionId, state, cwd, name}` and exits 0 once the session is listed as running. When the session crashes before starting, it exits 1 and prints the matching `daemon.log` lines. It also warns if the session's cwd isn't the directory you asked for.
+
+- **Don't hand-roll the launch.** `(cd <dir> && claude --bg …)` and `env -C <dir> claude --bg …` work but can't be matched by allow rules, so they need approval each time. A bare `cd` in its own call moves this session's working directory. `claude --bg` has no `--cwd` flag.
 - **Use this session's own permission mode.** A session in a different mode holds this session's messages for its user's approval, so follow-ups and answers can sit unseen.
 - Leave out `--add-dir` unless the session needs a directory outside its own. Leave out `--model` and `--effort` to use the user's defaults.
-- For several sessions, launch each one with its own command. They can go in parallel.
+- For several sessions, run the script once per session. The calls can go in parallel.
+- A nonzero exit means the session isn't running. Read the error, fix the cause (see troubleshooting) and launch again.
 
-The output line gives a short id: `backgrounded · <id> · <name>`. If it adds "idle — send a prompt to start", the prompt didn't arrive; see troubleshooting.
-
-## 4. Confirm it started
-
-```sh
-claude agents --json --all | jq -c '.[] | select(.id=="<id>") | {id,sessionId,state,cwd,name}'
-```
-
-Expect `"state":"working"` and the intended `cwd`. "Backgrounded" alone doesn't mean it started. If the state is `failed`, read the end of `~/.claude/daemon.log`, where a crash before startup shows up as `settled <id> (crashed)` with the error.
-
-## 5. Wait for it
+## 4. Wait for it
 
 Don't sleep-poll in the foreground. Use both of these, then end the turn with a status line:
 
 1. **Idle notice** (main conversation only; a subagent can't subscribe). Find the session's name with ListAgents, then call SendMessage to that name with `notify_when_idle: true` and no message. One notice arrives when it goes idle or exits. It does **not** fire when the session blocks on a question.
-2. **State poll**, run in the background with a timeout. It also catches `blocked`, and gives up early if the id is wrong:
+2. **Wait script,** run as a background command so its exit notifies you:
 
    ```sh
-   miss=0; for i in {1..360}; do s=$(claude agents --json --all | jq -r '.[] | select(.id=="<id>") | .state'); case "$s" in working) miss=0; sleep 10;; "") miss=$((miss+1)); [ $miss -ge 3 ] && { echo "id not found"; exit 1; }; sleep 10;; *) echo "state=$s"; exit 0;; esac; done; echo "timed out, state=$s"
+   sh <skill dir>/scripts/wait.sh --timeout <seconds> <id> [<id>...]
    ```
 
-   Scale the loop count to the expected run time. For several sessions, poll each id or loop over the ids.
+   It polls every 10 seconds until no listed session is still `working`. Then it prints each session's row and the end of its final reply, read from the transcript. Exit codes: 0 all `done`, 3 any `blocked`, `failed` or `stopped`, 4 an id not found, 1 timed out. The default timeout is 3600 seconds; set it to the expected run time with room to spare.
 
-If the state is `blocked`, look at what it's waiting on. Answer a question through SendMessage. A permission prompt can't be answered by message: tell the user to `claude attach <id>`.
+If a session is `blocked`, look at what it's waiting on. Answer a question through SendMessage. A permission prompt can't be answered by message: tell the user to `claude attach <id>`.
 
-## 6. Read and check the result
+## 5. Read and check the result
 
-- **Final answer:** read it from the transcript, not from `claude logs`, which is a redraw stream of the terminal UI that garbles words and numbers.
-
-  ```sh
-  jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="text") | .text' ~/.claude/projects/*/<full session id>.jsonl | tail -n 40
-  ```
-
-  A file the prompt told it to write is easier still.
-- **Progress glances:** `claude logs <id> | sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g'`.
+- **Final answer:** `wait.sh` prints the end of it. For more, read the transcript, not `claude logs`, which is a redraw stream of the terminal UI that garbles words and numbers. The transcript is `~/.claude/projects/<project folder>/<full session id>.jsonl`; take the assistant `text` blocks with jq. A file the prompt told it to write is easier still.
+- **Progress glances:** `claude logs <id>` shows the live screen; don't read figures or verdicts from it.
 - **Which instruction files it loaded,** if debug logging is on: `grep 'CLAUDE.md/rules files' ~/.claude/debug/<full session id>.txt`.
 - **Check its work before reporting it as done:** diffs, test output, PR state, anything it posted. Use absolute paths or `git -C <dir>` for these checks; a bare `cd` moves this session's working directory.
 
-## 7. Follow up, stop, clean up
+## 6. Follow up, stop, clean up
 
 - **Session still listed by ListAgents:** use SendMessage. Check the result for a notice that the message is held for approval.
-- **Finished session with no process:** relaunch it from its original directory with the same subshell form: `(cd <dir> && claude --bg --resume <full session id> -- "<follow-up>")`. It keeps its saved name, model, effort, permission mode and added directories. If the session was still alive, this starts a copy under a new id. Two live rows then share one name, and SendMessage needs the row's `[ref]`; stop the copy.
+- **Finished session with no process:** write the follow-up to a prompt file and resume from its original directory: `sh <skill dir>/scripts/launch.sh <dir> <prompt-file> --resume <full session id>`. It keeps its saved name, model, effort, permission mode and added directories. If the session was still alive, this starts a copy under a new id. Two live rows then share one name, and SendMessage needs the row's `[ref]`; stop the copy.
 - **Stop:** `claude stop <id>`. It keeps the conversation.
 - **Remove:** `claude rm <id>` deletes the session and, when it judges that safe, its worktree. Don't run it on a session whose directory is a worktree that existed before the session or that another session still uses. If you must, `git worktree lock` the worktree first, run `rm`, check that the directory and its HEAD survived, then unlock.
 
