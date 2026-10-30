@@ -9,8 +9,10 @@ The skill is model-invoked: Claude loads it when work belongs in another repo or
 From a checkout of this repository:
 
 ```sh
-pnpm dlx skills@1.5.26 add "$PWD" --skill background-sessions --agent claude-code --global --yes
+sfw pnpm dlx skills@1.5.26 add "$PWD" --skill background-sessions --agent claude-code --global --yes
 ```
+
+`sfw` is Socket Firewall; drop it if you don't use it.
 
 The installed copy is separate from the checkout: rerun the command after changing the skill.
 
@@ -25,7 +27,7 @@ So launches and status checks don't stop on permission prompts, add these to `pe
 "Bash(claude stop:*)"
 ```
 
-`claude rm` is left out on purpose: it can delete a session's worktree.
+`claude rm` is left out on purpose: it can delete a session's worktree. The skill launches from a subshell, `(cd <dir> && claude --bg …)`; whether these prefix rules match that form hasn't been verified. In auto mode, the launch has gone through without a prompt.
 
 ## Layout
 
