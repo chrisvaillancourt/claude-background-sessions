@@ -14,7 +14,7 @@ A background session started in the target directory has none of these problems.
 
 - **No directory option:** `claude --bg` can't be told where to start, and the obvious ways to change directory either move the calling session or need a permission approval every time.
 - **A dropped prompt that looks fine:** a prompt starting with `-` is read as an option, and the session dies before it starts while the launch still prints "backgrounded".
-- **Waiting is unreliable:** the built-in idle notice misses a session stuck on a question. After a follow-up message, the session list can report a finished session as still working.
+- **Waiting is unreliable:** the built-in idle notice misses a session stuck on a question. After a follow-up message, the session list can report a finished session as still working. A session that's idle until its own background job finishes gets an idle notice at once, for the turn that already ended.
 - **Garbled output:** `claude logs` mangles words and numbers.
 - **Repo setup:** worktree placement, trust, the background edit guard, permission modes and cleanup all need care.
 
@@ -25,7 +25,7 @@ This skill gives agents one tested way through all of that. It's model-invoked: 
 1. **Prepares the directory:** a dedicated, freshly fetched worktree for code changes, and a trust check.
 2. **Writes the agent's prompt to a file,** covering its goal, limits on outward writes, where output goes, and answers to questions it might otherwise stop and ask.
 3. **Launches with `scripts/launch.sh`,** which starts the session in the target directory without moving the caller and confirms it's actually running.
-4. **Waits with `scripts/wait.sh`** plus the built-in idle notice. The script prints the session's final reply from its transcript, and has a mode for waiting on follow-up messages.
+4. **Waits with `scripts/wait.sh`** plus the built-in idle notice. The script prints the session's final reply from its transcript, and has modes for waiting on follow-up messages and on a session's next turn.
 5. **Checks the work, follows up, and cleans up** worktrees only when their work is committed and pushed or merged.
 
 Background on every choice, with evidence: [docs/decisions.md](docs/decisions.md).
@@ -74,12 +74,13 @@ The scripts work around today's permission checks.
 - `docs/decisions.md`: each design decision, why it was made, the evidence, and what's still unverified.
 - `docs/why-scripts.md`: why the scripts exist and when to remove them.
 - `tests/permission-forms.sh`: reruns the permission test behind the scripts.
+- `tests/wait-script.sh`: offline tests for `wait.sh`, with a fake `claude agents` and transcript.
 
 The scripts need `sh`, `jq` and `awk`; the test also needs `timeout`.
 
 ## Testing a change
 
-Run `tests/permission-forms.sh`, then start a fresh headless session in default permission mode with a plain request. It should load the skill and run the scripts with no `permission_denials`:
+Run `sh tests/wait-script.sh` (offline, about a minute) and `tests/permission-forms.sh`, then start a fresh headless session in default permission mode with a plain request. It should load the skill and run the scripts with no `permission_denials`:
 
 ```sh
 claude -p --permission-mode default --output-format json \

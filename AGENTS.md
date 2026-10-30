@@ -14,6 +14,7 @@ This repository is the `background-sessions` Claude Code skill: starting `claude
 | Allow rules | [README.md](README.md) |
 | Why the scripts exist, and when to remove them | [docs/why-scripts.md](docs/why-scripts.md) |
 | Re-check which command forms permissions allow | [tests/permission-forms.sh](tests/permission-forms.sh) |
+| Test `wait.sh` without starting sessions | [tests/wait-script.sh](tests/wait-script.sh) |
 | Install | [README.md](README.md) |
 
 ## Rules

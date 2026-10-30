@@ -82,7 +82,15 @@ Don't sleep-poll in the foreground. Use both of these, then end the turn with a 
 
    It polls every few seconds until no listed session is still `working`. Then it prints each session's row and its latest reply, read from the transcript. Exit codes: 0 all `done`, 3 any `blocked`, `failed` or `stopped`, 4 an id not found, 5 with `--after-message`, no recent message reached the transcript (see step 6), 1 timed out. The default timeout is 3600 seconds; set it to the expected run time with room to spare.
 
-`done` means the session's turn ended, not that the task succeeded. A session that ends its turn while its own background job runs also shows `done`. Step 5's check covers this.
+`done` means the session's turn ended, not that the task succeeded. A session that ends its turn while its own background job runs (a build, another model's review) can also show `done`, with a reply like "I'll pick up when it finishes". Step 5's check covers this.
+
+**Waiting for a session that will resume on its own.** When a session is idle until its own background job notifies it, an idle notice fires at once for the turn that already ended, and so does a second subscription; plain `wait.sh` also returns at once. Don't resubscribe. Run this as a background command instead:
+
+```sh
+sh <skill dir>/scripts/wait.sh --next-turn --timeout <seconds> <id>
+```
+
+It records how long the session's transcript is when it starts, then waits for a new assistant reply after that point while the session isn't busy, and prints that reply. The exit codes are the same. Start it before the job can finish: a turn that ends before the wait starts counts as the old turn.
 
 If a session is `blocked`, look at what it's waiting on. Answer a question through SendMessage. A permission prompt can't be answered by message: tell the user to `claude attach <id>`.
 
@@ -98,7 +106,7 @@ If a session is `blocked`, look at what it's waiting on. Answer a question throu
 - **Session still listed by ListAgents:** send the follow-up with SendMessage and `notify_when_idle: true`, which delivers it and subscribes in one call. Check the result for a notice that the message is held for approval. Right away, also start `sh <skill dir>/scripts/wait.sh --after-message <id>` as a background command.
   - **Why `--after-message`:** once a session has had a message, `claude agents` can keep reporting `state: "working"` while it sits idle, and without the flag the earlier reply can be mistaken for the new one. With the flag, the script reads the transcript and waits for a reply after the message.
   - **Run it within two minutes of sending.** It counts only messages from the last 120 seconds, and exits 5 if none arrives.
-  - **Use the flag for every later wait on that session,** too.
+  - **Use the flag for every later wait on that session,** too, except a wait for a turn the session starts on its own, with no new message: that's `--next-turn` (step 4).
 - **Finished session with no process:** write the follow-up to a prompt file and resume from its original directory: `sh <skill dir>/scripts/launch.sh <dir> <prompt-file> --resume <full session id>`. It keeps its saved name, model, effort, permission mode and added directories. If the session was still alive, this starts a copy under a new id. Two live rows then share one name, and SendMessage needs the row's `[ref]`; stop the copy.
 - **Stop:** `claude stop <id>`. It keeps the conversation.
 - **Clean up a worktree you created** once its work is safe: `git -C <worktree> status --porcelain` prints nothing, and the branch is pushed (`git -C <worktree> log @{u}..` prints nothing) or merged. Then `claude stop <id>` and `git -C <repo> worktree remove <worktree>`. Delete the branch only if it's merged. If any check fails, leave the worktree and tell the user what's in it.
