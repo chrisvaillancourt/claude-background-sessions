@@ -38,7 +38,7 @@ Use a background session without being told to whenever code work belongs to ano
 
 ## 2. Write the prompt to a file
 
-Write it with the file-writing tool, at an absolute path in this session's scratchpad; there's no need for `mktemp` or other shell commands. The session knows only what the prompt says. Include:
+Write it with the file-writing tool, at an absolute path in this session's scratchpad. If the session has no scratchpad, any absolute path that tool can write works, such as a new folder under `/tmp`. Don't use shell commands like `mktemp` or `printenv` to find or create the location. The session knows only what the prompt says. Include:
 
 - The goal, the inputs by absolute path, and the acceptance check.
 - For code changes: commit the work in its worktree before ending, and push only if the user authorized it.
