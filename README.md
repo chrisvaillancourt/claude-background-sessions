@@ -31,13 +31,13 @@ So launches and waits don't stop on permission prompts or auto mode's safety che
 
 The two script rules cover what the skill runs. The `claude` rules cover direct status checks and stops. `claude rm` is left out on purpose: it can delete a session's worktree.
 
-Why scripts: launching in another directory needs a `cd`, and every one-line form that keeps the caller's directory in place needs approval no matter what rules exist. Tested with headless sessions in default permission mode on Claude Code 2.1.312:
+## Why scripts
 
-| Command | Result |
-|---|---|
-| `claude --bg …` | Allowed by `Bash(claude --bg:*)` |
-| `(cd <dir> && claude --bg …)` | Refused: "This command uses shell operators that require approval for safety" |
-| `env -C <dir> claude --bg …` | Refused: "'env -C' can't be checked before it runs" |
+The scripts work around today's permission checks.
+- **Launching:** a session must start in another directory, `claude --bg` has no option for that, and every one-line command that `cd`s without moving the calling session needs approval no matter what rules exist.
+- **Waiting:** waiting needs a shell loop, which no rule can match either.
+
+[docs/why-scripts.md](docs/why-scripts.md) has the evidence, what else each script fixes, and the conditions for removing them. `sh tests/permission-forms.sh <trusted repo dir>` reruns the permission test.
 
 ## Layout
 
@@ -45,7 +45,18 @@ Why scripts: launching in another directory needs a `cd`, and every one-line for
 - `skills/background-sessions/scripts/launch.sh`: starts a session in a directory and confirms it's running.
 - `skills/background-sessions/scripts/wait.sh`: waits for sessions to finish and prints their final replies.
 - `skills/background-sessions/references/troubleshooting.md`: failure modes and fixes, read when something goes wrong.
+- `docs/why-scripts.md`: why the scripts exist and when to remove them.
+- `tests/permission-forms.sh`: reruns the permission test behind the scripts.
 
-The scripts need `sh`, `jq` and `awk`.
+The scripts need `sh`, `jq` and `awk`; the test also needs `timeout`.
+
+## Testing a change
+
+Run `tests/permission-forms.sh`, then start a fresh headless session in default permission mode with a plain request. It should load the skill and run the scripts with no `permission_denials`:
+
+```sh
+claude -p --permission-mode default --output-format json \
+  "Start a Haiku agent in <trusted repo dir> to report <something in that repo>. Wait for its answer, then report it and how you started the agent."
+```
 
 Verified with Claude Code 2.1.312.
