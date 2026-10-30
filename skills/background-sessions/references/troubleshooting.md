@@ -12,6 +12,9 @@
 | SendMessage reports the message is held for approval | The background session runs in a different permission mode | Tell the user to approve it there or `claude attach <id>`. Launch later sessions in this session's mode |
 | SendMessage fails with "not reachable" | The finished session's process exited | Resume it: `sh <skill dir>/scripts/launch.sh <original dir> <prompt-file> --resume <full session id>` |
 | `--resume` printed a new id | The session was still alive, so resume started a copy | Stop the copy and message the original with SendMessage, using its `[ref]` if names collide |
+| `wait.sh` without `--after-message` never returns for a session you've messaged, which shows `state: "working"` and `status: "idle"` | After a message, `state` can stay `working` while the session is idle | Stop that wait and use `wait.sh --after-message <id>` |
+| `wait.sh --after-message` exits 5 | No message from the last 120 seconds is in the transcript: it was held for approval, refused, or sent more than two minutes before the wait started | Check the SendMessage result and any `[Cross-session delivery notice]`. If it was delivered, read the transcript directly |
+| `launch.sh` reports `blocked` right away | The session stopped on a question or permission prompt in its first turn | Read `claude logs <id>` to see which. Answer a question with SendMessage; for a permission prompt, tell the user to `claude attach <id>` |
 | Idle notice never arrived | The session blocked on a question; the subscription only fires on idle or exit | Keep `wait.sh` running alongside it; it exits 3 on `blocked` |
 | A session is `blocked` on a permission prompt | Permission prompts need the user | Tell the user to `claude attach <id>`; SendMessage can't approve it |
 | This session's working directory changed | A `cd` ran in its own Bash call, for example while checking results | `cd` back, and use absolute paths or `git -C` |
