@@ -96,7 +96,7 @@ If the state is `blocked`, look at what it's waiting on. Answer a question throu
   A file the prompt told it to write is easier still.
 - **Progress glances:** `claude logs <id> | sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g'`.
 - **Which instruction files it loaded,** if debug logging is on: `grep 'CLAUDE.md/rules files' ~/.claude/debug/<full session id>.txt`.
-- **Check its work before reporting it as done:** diffs, test output, PR state, anything it posted.
+- **Check its work before reporting it as done:** diffs, test output, PR state, anything it posted. Use absolute paths or `git -C <dir>` for these checks; a bare `cd` moves this session's working directory.
 
 ## 7. Follow up, stop, clean up
 
