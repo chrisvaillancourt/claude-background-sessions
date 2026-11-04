@@ -38,6 +38,8 @@ if [ -z "$id" ]; then
 fi
 
 # "backgrounded" doesn't mean it started: a crash before init shows up as state "failed".
+# Each config dir runs its own daemon, so its log follows CLAUDE_CONFIG_DIR.
+daemon_log="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/daemon.log"
 i=0
 while [ $i -lt 15 ]; do
   row=$(claude agents --json --all | jq -c --arg id "$id" '.[] | select(.id == $id) | {id, sessionId, state, cwd, name}')
@@ -46,7 +48,7 @@ while [ $i -lt 15 ]; do
     failed)
       printf '%s\n' "$row"
       echo "launch.sh: session $id failed to start. daemon.log says:" >&2
-      grep -F "$id" "$HOME/.claude/daemon.log" 2>/dev/null | tail -n 3 >&2 || true
+      grep -F "$id" "$daemon_log" 2>/dev/null | tail -n 3 >&2 || true
       exit 1
       ;;
     "")
@@ -63,5 +65,5 @@ while [ $i -lt 15 ]; do
   i=$((i + 1))
   sleep 1
 done
-echo "launch.sh: session $id not listed by 'claude agents' after 15s; check ~/.claude/daemon.log" >&2
+echo "launch.sh: session $id not listed by 'claude agents' after 15s; check $daemon_log" >&2
 exit 1

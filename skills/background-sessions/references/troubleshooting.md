@@ -3,7 +3,8 @@
 | Symptom | Cause | Fix |
 |---|---|---|
 | `launch.sh` exits 1 with `unknown option '…'` from `daemon.log` | An option `claude --bg` doesn't take, such as `--cwd` | Check `claude --help`, fix the options after the prompt file, and launch again |
-| `launch.sh` exits 1: "not listed by 'claude agents' after 15s" | The daemon didn't register the session | Read the end of `~/.claude/daemon.log` for the id and its error |
+| `launch.sh` exits 1: "not listed by 'claude agents' after 15s" | The daemon didn't register the session | Read the end of `daemon.log` in the config dir (`$CLAUDE_CONFIG_DIR`, else `~/.claude`) for the id and its error |
+| `claude agents` doesn't list a session another shell started | Each `CLAUDE_CONFIG_DIR` runs its own daemon, which lists only its own sessions (verified on 2.1.318) | Run `claude agents`, `claude logs` and `claude stop` with the same `CLAUDE_CONFIG_DIR` the session was launched with |
 | A hand-rolled launch prints "idle — send a prompt to start" | The prompt started with `-`, or `--add-dir` swallowed it, because there was no `--` before the prompt | Use `launch.sh`, which adds the `--` |
 | "Workspace not trusted" | The repo was never opened interactively | Ask the user to run `claude` in any checkout of that repo once and accept the trust prompt. `--add-dir` grants file access, not trust |
 | The launch or wait call needs approval, or auto mode denies it ("Create Unsafe Agents") | The call isn't the plain `sh <absolute path>/scripts/<name>.sh …` form, or the user hasn't added the allow rules from the README | Use the plain form with the skill directory written out. If it's still refused, tell the user; don't route around the denial |
