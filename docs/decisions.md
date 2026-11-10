@@ -106,6 +106,8 @@ A plain `sh <absolute path> …` call matches a prefix rule, so it skips both.
 
 **Why:** the parent-directory route skips the user's trust decision. It also loses the point of the skill, since the target's settings, rules and memory don't load, and edits there are usually refused anyway. The second review raised this.
 
+**Added 2026-11-10 (Claude Code 2.1.322):** two launches into new worktrees of repos under a trusted parent directory were refused as untrusted, so a parent's trust doesn't reach a repo inside it. After the user accepted the prompt in each repo, the same launch commands ran with the worktrees and prompt files made before the refusal. A check that reads Claude Code's config for trust before any other work was built and dropped: the refusal already costs only the user's one step, and the check would copy an internal lookup that can change between versions.
+
 ## 14. Packaging
 
 **Decisions:**

@@ -34,7 +34,7 @@ Use a background session without being told to whenever code work belongs to ano
 
   A new branch from a remote branch tracks it: run `git -C <worktree-path> branch --unset-upstream` and tell the session to push with an explicit refspec. Never `cp -r` a worktree.
 - **A fresh worktree has no virtualenv or `node_modules`.** Tell the session the repo's setup command, or run it first.
-- **The repo must be trusted.** Trust is per repository (for bare-repo layouts, keyed on the git common dir), not per worktree. An untrusted directory fails with "Workspace not trusted": stop and ask the user to run `claude` there once and accept the prompt. Don't get around it by launching from a trusted parent with `--add-dir <target>`. That skips the user's trust decision and the target's settings, rules and memory, and the session usually can't edit there. Use that route only for read-only work, and only when the user agrees to it.
+- **The repo must be trusted.** Trust is per repository (for bare-repo layouts, keyed on the git common dir), not per worktree, and a trusted parent directory doesn't cover a repo inside it. An untrusted directory fails with "Workspace not trusted": stop and ask the user to run `claude` there once and accept the prompt. The refused launch leaves the worktree and prompt file as they are, so rerun the same launch command once the user confirms. Don't get around it by launching from a trusted parent with `--add-dir <target>`. That skips the user's trust decision and the target's settings, rules and memory, and the session usually can't edit there. Use that route only for read-only work, and only when the user agrees to it.
 
 ## 2. Write the prompt to a file
 
